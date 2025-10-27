@@ -1,6 +1,7 @@
 import { Attachment } from "@/db/schema";
 import { supabase } from "@/lib/supabase";
 import { File } from "expo-file-system";
+import { decode } from "base64-arraybuffer";
 
 const endpoint = `${process.env.EXPO_PUBLIC_API_URL}/attachments`;
 
@@ -15,7 +16,7 @@ export async function createAttachment(attachment: Attachment) {
     // Upload the image to supabase
     const { data, error } = await supabase.storage
       .from(process.env.EXPO_PUBLIC_SUPABASE_STORAGE_BUCKET)
-      .upload(filepath, file, {
+      .upload(filepath, decode(file), {
         contentType: "image/jpeg",
         upsert: true, //Allow upserts in case we have a failure AFTER this step
       });
