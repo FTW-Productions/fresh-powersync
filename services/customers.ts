@@ -10,8 +10,12 @@ export async function createCustomer(customer: Customer) {
     },
     // Do a little type juggling...
     body: JSON.stringify({
-      ...customer,
-      created_at: new Date(customer.created_at!).toISOString(),
+      id: customer.id,
+      name: customer.name,
+      phone: customer.phone,
+      attachmentId: customer.attachment_id,
+      createdBy: customer.created_by,
+      createdAt: new Date(customer.created_at!).toISOString(),
     }),
   });
 

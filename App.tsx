@@ -35,6 +35,7 @@ export default function App() {
       await setupPowerSync();
     };
     if (!!success) {
+      console.debug("All required migrations completed successfully.");
       setup()
         .catch((error) => console.error("Error setting up PowerSync: ", error))
         .then(() => console.debug("PowerSync setup complete"));

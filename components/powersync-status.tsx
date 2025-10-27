@@ -7,6 +7,9 @@ export const PowerSyncStatus = () => {
   const [hasSynced, setHasSynced] = useState(
     powersync.currentStatus?.hasSynced || false
   );
+  const [lastSyncedAt, setLastSyncedAt] = useState(
+    powersync.currentStatus.lastSyncedAt || "Unknown"
+  );
 
   useEffect(() => {
     console.log(powersync.currentStatus);
@@ -26,13 +29,22 @@ export const PowerSyncStatus = () => {
     });
   }, [powersync]);
 
+  useEffect(() => {
+    return powersync.registerListener({
+      statusChanged(status) {
+        if (status.lastSyncedAt)
+          setLastSyncedAt(status.lastSyncedAt?.toString());
+      },
+    });
+  });
+
   return (
     <>
       <Text>PowerSync Status: {connected ? "Yes" : "No"}</Text>
       <Text>
         PowerSync Sync Status: {hasSynced ? "Sync complete" : "No Sync Yet"}
       </Text>
-      <Text>Last Sync: {connected}</Text>
+      <Text>Last Sync: {lastSyncedAt.toString()}</Text>
     </>
   );
 };

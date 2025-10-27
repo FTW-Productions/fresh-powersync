@@ -6,6 +6,8 @@ import {
 import { supabase } from "@/lib/supabase";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { createCustomer } from "@/services/customers";
+import { Attachment, Customer } from "@/db/schema";
+import { createAttachment } from "@/services/attachments";
 
 export class Connector implements PowerSyncBackendConnector {
   supabaseClient: SupabaseClient;
@@ -72,14 +74,25 @@ export class Connector implements PowerSyncBackendConnector {
           console.log(op.opData);
           switch (op.table) {
             case "customers":
-              const newCustomer = {
+              const newCustomer: Customer = {
                 id: op.id,
                 name: op.opData!.name,
                 phone: op.opData!.phone,
+                attachment_id: op.opData!.attachment_id,
                 created_by: op.opData!.created_by,
                 created_at: op.opData!.created_at,
               };
               await createCustomer(newCustomer);
+              break;
+            case "attachments":
+              const newAttachment: Attachment = {
+                id: op.id,
+                path: op.opData!.path,
+                local_path: op.opData!.local_path,
+                created_by: op.opData!.created_by,
+                created_at: op.opData!.created_at,
+              };
+              await createAttachment(newAttachment);
               break;
           }
           break;

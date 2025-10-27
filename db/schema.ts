@@ -6,6 +6,15 @@ export const customers = sqliteTable("customers", {
   created_at: integer("created_at"),
   phone: text("phone"),
   name: text("name"),
+  attachment_id: text("attachment_id"),
+  created_by: text("created_by"),
+});
+
+export const attachments = sqliteTable("attachments", {
+  id: text("id"),
+  local_path: text("local_path"),
+  path: text("path"),
+  created_at: integer("created_at"),
   created_by: text("created_by"),
 });
 
@@ -27,9 +36,11 @@ export const drizzleSchema = {
   customers,
   projects,
   profiles,
+  attachments,
 };
 
 // Export types for use in the app
 export type Customer = typeof customers.$inferSelect;
 export type Project = typeof projects.$inferSelect;
 export type Profile = typeof profiles.$inferSelect;
+export type Attachment = typeof attachments.$inferSelect;

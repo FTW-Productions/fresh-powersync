@@ -14,7 +14,7 @@ logger.setLevel(LogLevel.DEBUG);
 
 export const powersync = new PowerSyncDatabase({
   schema: appSchema,
-  database: { dbFilename: "vanilla-ps.db" },
+  database: { dbFilename: "manual-image-ps.db" },
   logger,
 });
 

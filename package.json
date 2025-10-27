@@ -9,8 +9,8 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@expo/vector-icons": "^15.0.2",
     "@journeyapps/react-native-quick-sqlite": "^2.4.10",
-    "@powersync/attachments": "^2.4.0",
     "@powersync/drizzle-driver": "^0.6.0",
     "@powersync/react-native": "^1.25.1",
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -22,7 +22,10 @@
     "base64-arraybuffer": "^1.0.2",
     "drizzle-orm": "^0.44.6",
     "expo": "~54.0.13",
+    "expo-camera": "~17.0.8",
     "expo-file-system": "~19.0.17",
+    "expo-image": "~3.0.9",
+    "expo-image-picker": "~17.0.8",
     "expo-sqlite": "^16.0.8",
     "expo-status-bar": "~3.0.8",
     "react": "19.1.0",

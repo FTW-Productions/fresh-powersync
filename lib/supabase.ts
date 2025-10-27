@@ -30,3 +30,10 @@ if (Platform.OS !== "web") {
     }
   });
 }
+
+export const uploadFile = async (localFileLocation: string) => {
+  // Get the actual file from local storage
+  // Build the folder structure
+  // customerId/projectId/imageType/file
+  //const { data, error } = await supabase.storage.from(process.env.EXPO_PUBLIC_SUPABASE_STORAGE_BUCKET).upload(localFileLocation, );
+};
