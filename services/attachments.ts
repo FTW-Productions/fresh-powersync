@@ -7,7 +7,7 @@ const endpoint = `${process.env.EXPO_PUBLIC_API_URL}/attachments`;
 
 export async function createAttachment(attachment: Attachment) {
   try {
-    // Create an arraybuffer from the file
+    // Create an base64 string from the file
     const file = new File(attachment.local_path!).base64Sync();
 
     // No need to over-complicate the file name
@@ -16,6 +16,7 @@ export async function createAttachment(attachment: Attachment) {
     // Upload the image to supabase
     const { data, error } = await supabase.storage
       .from(process.env.EXPO_PUBLIC_SUPABASE_STORAGE_BUCKET)
+      // Convert base64 string to an array buffer
       .upload(filepath, decode(file), {
         contentType: "image/jpeg",
         upsert: true, //Allow upserts in case we have a failure AFTER this step
