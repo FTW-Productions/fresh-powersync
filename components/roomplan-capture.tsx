@@ -1,45 +1,64 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { RoomPlanView, useRoomPlanView, ExportType } from "expo-roomplan";
-import * as FileSystem from "expo-file-system";
+import { File } from "expo-file-system";
+import { transformRoomPlanData, SimplifiedRoomData } from "@/lib/roomplan-transform";
 
-export function RoomPlanCapture() {
+interface RoomPlanCaptureProps {
+  roomId?: string;
+  onScanComplete?: (roomId: string | undefined, roomData: SimplifiedRoomData) => void;
+}
+
+export function RoomPlanCapture({ roomId, onScanComplete }: RoomPlanCaptureProps) {
   const [overlay, setOverlay] = useState(false);
-  const { viewProps, controls, state } = useRoomPlanView({
-    scanName: "HookRoom",
+  const { viewProps, controls } = useRoomPlanView({
+    scanName: "RoomScan",
     exportType: ExportType.Parametric,
     exportOnFinish: true,
     sendFileLoc: true,
-    autoCloseOnTerminalStatus: true,
-    onStatus: (e) => console.log("status", e.nativeEvent),
-    onPreview: () => console.log("preview"),
+    autoCloseOnTerminalStatus: false,
+    onStatus: (e) => {
+      console.log("RoomPlan status:", JSON.stringify(e.nativeEvent, null, 2));
+    },
+    onPreview: () => console.log("RoomPlan preview displayed"),
     onExported: async (event) => {
       const { jsonUrl } = event.nativeEvent;
       if (jsonUrl) {
         try {
-          const jsonContent = await FileSystem.readAsStringAsync(jsonUrl);
-          const roomData = JSON.parse(jsonContent);
-          console.log("Room scan data:", JSON.stringify(roomData, null, 2));
+          const file = new File(jsonUrl);
+          const jsonContent = await file.text();
+          const rawData = JSON.parse(jsonContent);
+          console.log("Raw room scan data:", JSON.stringify(rawData, null, 2));
+
+          const transformedData = transformRoomPlanData(rawData);
+          console.log("Transformed room data:", JSON.stringify(transformedData, null, 2));
+
+          onScanComplete?.(roomId, transformedData);
         } catch (error) {
           console.error("Failed to read room scan JSON:", error);
         }
       }
+      setOverlay(false);
+      controls.reset();
     },
   });
 
-  useEffect(() => {
-    if (overlay && !state.isRunning) setOverlay(false);
-  }, [overlay, state.isRunning]);
+  const handleOpenScanner = () => {
+    controls.reset();
+    setOverlay(true);
+    controls.start();
+  };
+
+  const handleCancel = () => {
+    controls.cancel();
+    setOverlay(false);
+    controls.reset();
+  };
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
-      <Pressable
-        onPress={() => {
-          setOverlay(true);
-          controls.start();
-        }}
-      >
+      <Pressable onPress={handleOpenScanner}>
         <Text>Open Scanner</Text>
       </Pressable>
       {overlay && (
@@ -55,19 +74,11 @@ export function RoomPlanCapture() {
               justifyContent: "space-between",
             }}
           >
-            <Pressable
-              onPress={() => {
-                controls.cancel();
-                setOverlay(false);
-              }}
-            >
+            <Pressable onPress={handleCancel}>
               <Text>Cancel</Text>
             </Pressable>
             <Pressable onPress={controls.finishScan}>
               <Text>Finish</Text>
-            </Pressable>
-            <Pressable onPress={controls.addRoom}>
-              <Text>Add Room</Text>
             </Pressable>
           </SafeAreaView>
         </View>
