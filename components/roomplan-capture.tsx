@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { RoomPlanView, useRoomPlanView, ExportType } from "expo-roomplan";
+import * as FileSystem from "expo-file-system";
 
 export function RoomPlanCapture() {
   const [overlay, setOverlay] = useState(false);
@@ -13,10 +14,17 @@ export function RoomPlanCapture() {
     autoCloseOnTerminalStatus: true,
     onStatus: (e) => console.log("status", e.nativeEvent),
     onPreview: () => console.log("preview"),
-    onExported:  async (event) => {
-    const { jsonUrl } = event.nativeEvent;
-      // Read and process the JSON
-      console.log(jsonUrl)
+    onExported: async (event) => {
+      const { jsonUrl } = event.nativeEvent;
+      if (jsonUrl) {
+        try {
+          const jsonContent = await FileSystem.readAsStringAsync(jsonUrl);
+          const roomData = JSON.parse(jsonContent);
+          console.log("Room scan data:", JSON.stringify(roomData, null, 2));
+        } catch (error) {
+          console.error("Failed to read room scan JSON:", error);
+        }
+      }
     },
   });
 
