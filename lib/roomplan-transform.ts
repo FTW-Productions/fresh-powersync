@@ -9,14 +9,14 @@ const IICRC_LINEAR_FEET_PER_AIR_MOVER_MAX = 16;
 
 // Type definitions for raw RoomPlan JSON
 interface RawRoomPlanData {
-  version: number;
-  walls: RawWall[];
-  floors: RawFloor[];
-  doors: RawDoor[];
-  windows: RawWindow[];
-  openings: RawOpening[];
-  objects: RawObject[];
-  rooms: any[];
+  version?: number;
+  walls?: RawWall[];
+  floors?: RawFloor[];
+  doors?: RawDoor[];
+  windows?: RawWindow[];
+  openings?: RawOpening[];
+  objects?: RawObject[];
+  rooms?: unknown[];
 }
 
 interface RawWall {
@@ -208,7 +208,7 @@ function getObjectType(category: Record<string, any>): string {
 }
 
 function generateScanId(): string {
-  return `scan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return `scan_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
 }
 
 export function transformRoomPlanData(raw: RawRoomPlanData): SimplifiedRoomData {
@@ -309,9 +309,13 @@ export function transformRoomPlanData(raw: RawRoomPlanData): SimplifiedRoomData 
     },
   }));
 
-  // Calculate IICRC S500 drying metrics
-  const airMoversMin = Math.ceil(linearWallFeet / IICRC_LINEAR_FEET_PER_AIR_MOVER_MAX);
-  const airMoversMax = Math.ceil(linearWallFeet / IICRC_LINEAR_FEET_PER_AIR_MOVER_MIN);
+  // Calculate IICRC S500 drying metrics (guard against division by zero)
+  const airMoversMin = linearWallFeet > 0
+    ? Math.ceil(linearWallFeet / IICRC_LINEAR_FEET_PER_AIR_MOVER_MAX)
+    : 0;
+  const airMoversMax = linearWallFeet > 0
+    ? Math.ceil(linearWallFeet / IICRC_LINEAR_FEET_PER_AIR_MOVER_MIN)
+    : 0;
 
   return {
     scanId,

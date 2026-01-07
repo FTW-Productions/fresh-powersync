@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { RoomPlanView, useRoomPlanView, ExportType } from "expo-roomplan";
@@ -13,6 +13,9 @@ interface RoomPlanCaptureProps {
 
 export function RoomPlanCapture({ roomId, onScanComplete, onScanError }: RoomPlanCaptureProps) {
   const [overlay, setOverlay] = useState(false);
+  const overlayRef = useRef(overlay);
+  overlayRef.current = overlay;
+
   const { viewProps, controls } = useRoomPlanView({
     scanName: "RoomScan",
     exportType: ExportType.Parametric,
@@ -47,13 +50,15 @@ export function RoomPlanCapture({ roomId, onScanComplete, onScanError }: RoomPla
   });
 
   // Cleanup: cancel scan if component unmounts while scanning
+  // Using ref to avoid unstable dependency on controls object
   useEffect(() => {
     return () => {
-      if (overlay) {
+      if (overlayRef.current) {
         controls.cancel();
       }
     };
-  }, [overlay, controls]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleOpenScanner = () => {
     controls.reset();
