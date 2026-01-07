@@ -50,15 +50,15 @@ export function RoomPlanCapture({ roomId, onScanComplete, onScanError }: RoomPla
   });
 
   // Cleanup: cancel scan if component unmounts while scanning
-  // Using ref to avoid unstable dependency on controls object
+  // Capture controls at effect creation to avoid stale reference
   useEffect(() => {
+    const currentControls = controls;
     return () => {
       if (overlayRef.current) {
-        controls.cancel();
+        currentControls.cancel();
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [controls]);
 
   const handleOpenScanner = () => {
     controls.reset();

@@ -20,44 +20,44 @@ interface RawRoomPlanData {
 }
 
 interface RawWall {
-  dimensions: [number, number, number]; // [width, height, depth] in meters
-  confidence: { high?: {}; medium?: {}; low?: {} };
-  identifier: string;
-  parentIdentifier: string | null;
+  dimensions?: [number, number, number]; // [width, height, depth] in meters
+  confidence?: { high?: {}; medium?: {}; low?: {} };
+  identifier?: string;
+  parentIdentifier?: string | null;
 }
 
 interface RawFloor {
-  dimensions: [number, number, number];
-  polygonCorners: [number, number, number][]; // [x, y, z] coordinates
-  confidence: { high?: {}; medium?: {}; low?: {} };
-  identifier: string;
+  dimensions?: [number, number, number];
+  polygonCorners?: [number, number, number][]; // [x, y, z] coordinates
+  confidence?: { high?: {}; medium?: {}; low?: {} };
+  identifier?: string;
 }
 
 interface RawDoor {
-  dimensions: [number, number, number];
-  parentIdentifier: string;
-  identifier: string;
-  category: { door: { isOpen: boolean } };
-  confidence: { high?: {}; medium?: {}; low?: {} };
+  dimensions?: [number, number, number];
+  parentIdentifier?: string;
+  identifier?: string;
+  category?: { door?: { isOpen?: boolean } };
+  confidence?: { high?: {}; medium?: {}; low?: {} };
 }
 
 interface RawWindow {
-  dimensions: [number, number, number];
-  parentIdentifier: string;
-  identifier: string;
-  confidence: { high?: {}; medium?: {}; low?: {} };
+  dimensions?: [number, number, number];
+  parentIdentifier?: string;
+  identifier?: string;
+  confidence?: { high?: {}; medium?: {}; low?: {} };
 }
 
 interface RawOpening {
-  dimensions: [number, number, number];
-  identifier: string;
-  confidence: { high?: {}; medium?: {}; low?: {} };
+  dimensions?: [number, number, number];
+  identifier?: string;
+  confidence?: { high?: {}; medium?: {}; low?: {} };
 }
 
 interface RawObject {
-  dimensions: [number, number, number];
-  category: Record<string, any>;
-  identifier: string;
+  dimensions?: [number, number, number];
+  category?: Record<string, unknown>;
+  identifier?: string;
 }
 
 // Type definitions for simplified output
@@ -199,7 +199,7 @@ function calculatePolygonArea(corners: [number, number, number][]): number {
   return Math.abs(area) / 2;
 }
 
-function getObjectType(category: Record<string, any>): string {
+function getObjectType(category: Record<string, unknown>): string {
   const keys = Object.keys(category);
   if (keys.length > 0) {
     return keys[0];
@@ -212,6 +212,11 @@ function generateScanId(): string {
 }
 
 export function transformRoomPlanData(raw: RawRoomPlanData): SimplifiedRoomData {
+  // Input validation
+  if (!raw || typeof raw !== 'object') {
+    throw new Error('Invalid RoomPlan data: expected object');
+  }
+
   const scanId = generateScanId();
   const scannedAt = new Date().toISOString();
 
@@ -231,20 +236,20 @@ export function transformRoomPlanData(raw: RawRoomPlanData): SimplifiedRoomData 
     }
   });
 
-  // Process walls
+  // Process walls (with bounds checking for dimensions)
   const walls = (raw.walls || []).map((wall) => {
-    const widthM = wall.dimensions[0];
-    const heightM = wall.dimensions[1];
+    const widthM = wall.dimensions?.[0] ?? 0;
+    const heightM = wall.dimensions?.[1] ?? 0;
     const areaSqM = widthM * heightM;
 
     return {
-      id: wall.identifier,
+      id: wall.identifier ?? '',
       width: toDualUnit(widthM),
       height: toDualUnit(heightM),
       area: toDualAreaUnit(areaSqM),
-      confidence: getConfidence(wall.confidence),
-      hasDoor: doorWallIds.has(wall.identifier),
-      hasWindow: windowWallIds.has(wall.identifier),
+      confidence: getConfidence(wall.confidence ?? {}),
+      hasDoor: wall.identifier ? doorWallIds.has(wall.identifier) : false,
+      hasWindow: wall.identifier ? windowWallIds.has(wall.identifier) : false,
     };
   });
 
@@ -256,7 +261,9 @@ export function transformRoomPlanData(raw: RawRoomPlanData): SimplifiedRoomData 
       floorAreaSqM = calculatePolygonArea(floor.polygonCorners);
     } else {
       // Fallback to dimensions (width * height for floor = length * width)
-      floorAreaSqM = floor.dimensions[0] * floor.dimensions[1];
+      const floorWidth = floor.dimensions?.[0] ?? 0;
+      const floorLength = floor.dimensions?.[1] ?? 0;
+      floorAreaSqM = floorWidth * floorLength;
     }
   }
 
@@ -275,37 +282,37 @@ export function transformRoomPlanData(raw: RawRoomPlanData): SimplifiedRoomData 
   // Calculate room volume
   const roomVolumeCuM = floorAreaSqM * ceilingHeightM;
 
-  // Process doors
+  // Process doors (with bounds checking)
   const doors = (raw.doors || []).map((door) => ({
-    id: door.identifier,
-    width: toDualUnit(door.dimensions[0]),
-    height: toDualUnit(door.dimensions[1]),
+    id: door.identifier ?? '',
+    width: toDualUnit(door.dimensions?.[0] ?? 0),
+    height: toDualUnit(door.dimensions?.[1] ?? 0),
     isOpen: door.category?.door?.isOpen ?? false,
-    wallId: door.parentIdentifier || null,
+    wallId: door.parentIdentifier ?? null,
   }));
 
-  // Process windows
+  // Process windows (with bounds checking)
   const windows = (raw.windows || []).map((window) => ({
-    id: window.identifier,
-    width: toDualUnit(window.dimensions[0]),
-    height: toDualUnit(window.dimensions[1]),
-    wallId: window.parentIdentifier || null,
+    id: window.identifier ?? '',
+    width: toDualUnit(window.dimensions?.[0] ?? 0),
+    height: toDualUnit(window.dimensions?.[1] ?? 0),
+    wallId: window.parentIdentifier ?? null,
   }));
 
-  // Process openings
+  // Process openings (with bounds checking)
   const openings = (raw.openings || []).map((opening) => ({
-    id: opening.identifier,
-    width: toDualUnit(opening.dimensions[0]),
-    height: toDualUnit(opening.dimensions[1]),
+    id: opening.identifier ?? '',
+    width: toDualUnit(opening.dimensions?.[0] ?? 0),
+    height: toDualUnit(opening.dimensions?.[1] ?? 0),
   }));
 
-  // Process objects
+  // Process objects (with bounds checking)
   const objects = (raw.objects || []).map((obj) => ({
-    type: getObjectType(obj.category),
+    type: getObjectType(obj.category ?? {}),
     dimensions: {
-      width: toDualUnit(obj.dimensions[0]),
-      height: toDualUnit(obj.dimensions[1]),
-      depth: toDualUnit(obj.dimensions[2]),
+      width: toDualUnit(obj.dimensions?.[0] ?? 0),
+      height: toDualUnit(obj.dimensions?.[1] ?? 0),
+      depth: toDualUnit(obj.dimensions?.[2] ?? 0),
     },
   }));
 
