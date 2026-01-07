@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { RoomPlanView, useRoomPlanView, ExportType } from "expo-roomplan";
@@ -8,9 +8,10 @@ import { transformRoomPlanData, SimplifiedRoomData } from "@/lib/roomplan-transf
 interface RoomPlanCaptureProps {
   roomId?: string;
   onScanComplete?: (roomId: string | undefined, roomData: SimplifiedRoomData) => void;
+  onScanError?: (error: Error) => void;
 }
 
-export function RoomPlanCapture({ roomId, onScanComplete }: RoomPlanCaptureProps) {
+export function RoomPlanCapture({ roomId, onScanComplete, onScanError }: RoomPlanCaptureProps) {
   const [overlay, setOverlay] = useState(false);
   const { viewProps, controls } = useRoomPlanView({
     scanName: "RoomScan",
@@ -37,12 +38,22 @@ export function RoomPlanCapture({ roomId, onScanComplete }: RoomPlanCaptureProps
           onScanComplete?.(roomId, transformedData);
         } catch (error) {
           console.error("Failed to read room scan JSON:", error);
+          onScanError?.(error instanceof Error ? error : new Error(String(error)));
         }
       }
       setOverlay(false);
       controls.reset();
     },
   });
+
+  // Cleanup: cancel scan if component unmounts while scanning
+  useEffect(() => {
+    return () => {
+      if (overlay) {
+        controls.cancel();
+      }
+    };
+  }, [overlay, controls]);
 
   const handleOpenScanner = () => {
     controls.reset();

@@ -3,6 +3,10 @@ const METERS_TO_FEET = 3.28084;
 const SQM_TO_SQFT = 10.7639;
 const CUM_TO_CUFT = 35.3147;
 
+// IICRC S500 Standard: 1 air mover per 10-16 linear feet for Class 1-2 water damage
+const IICRC_LINEAR_FEET_PER_AIR_MOVER_MIN = 10;
+const IICRC_LINEAR_FEET_PER_AIR_MOVER_MAX = 16;
+
 // Type definitions for raw RoomPlan JSON
 interface RawRoomPlanData {
   version: number;
@@ -127,7 +131,6 @@ export interface SimplifiedRoomData {
   dryingMetrics: {
     recommendedAirMovers: { min: number; max: number };
     linearFeetForAirMovers: number;
-    airChangesPerHour: number;
   };
 }
 
@@ -182,6 +185,8 @@ function getConfidence(conf: {
 function calculatePolygonArea(corners: [number, number, number][]): number {
   // Shoelace formula for polygon area
   // Using x (index 0) and y (index 1) coordinates - floor is on XY plane with z=0
+  // Note: RoomPlan exports floor polygons on XY plane with z=0
+  // If future scans use different orientations, this may need adjustment
   if (corners.length < 3) return 0;
 
   let area = 0;
@@ -255,15 +260,11 @@ export function transformRoomPlanData(raw: RawRoomPlanData): SimplifiedRoomData 
     }
   }
 
-  // Get ceiling height from wall heights (use median for consistency)
+  // Use maximum wall height as ceiling height
+  // (median could be skewed by partial walls or half-walls)
   let ceilingHeightM = 0;
   if (walls.length > 0) {
-    const heights = walls.map((w) => w.height.m).sort((a, b) => a - b);
-    const midIndex = Math.floor(heights.length / 2);
-    ceilingHeightM =
-      heights.length % 2 === 0
-        ? (heights[midIndex - 1] + heights[midIndex]) / 2
-        : heights[midIndex];
+    ceilingHeightM = Math.max(...walls.map((w) => w.height.m));
   }
 
   // Calculate total wall area and linear feet
@@ -309,14 +310,8 @@ export function transformRoomPlanData(raw: RawRoomPlanData): SimplifiedRoomData 
   }));
 
   // Calculate IICRC S500 drying metrics
-  // Air movers: 1 per 10-16 linear feet of wall for Class 1-2 water damage
-  const airMoversMin = Math.ceil(linearWallFeet / 16);
-  const airMoversMax = Math.ceil(linearWallFeet / 10);
-
-  // Air changes per hour recommendation (typically 4-6 for drying)
-  // Volume in cubic feet / 60 gives CFM needed for 1 ACH
-  const roomVolumeCuFt = cuMetersToCuFeet(roomVolumeCuM);
-  const airChangesPerHour = round2(roomVolumeCuFt / 60);
+  const airMoversMin = Math.ceil(linearWallFeet / IICRC_LINEAR_FEET_PER_AIR_MOVER_MAX);
+  const airMoversMax = Math.ceil(linearWallFeet / IICRC_LINEAR_FEET_PER_AIR_MOVER_MIN);
 
   return {
     scanId,
@@ -336,7 +331,6 @@ export function transformRoomPlanData(raw: RawRoomPlanData): SimplifiedRoomData 
     dryingMetrics: {
       recommendedAirMovers: { min: airMoversMin, max: airMoversMax },
       linearFeetForAirMovers: linearWallFeet,
-      airChangesPerHour,
     },
   };
 }
