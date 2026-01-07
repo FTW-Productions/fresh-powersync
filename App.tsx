@@ -9,6 +9,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { NavigationContainer } from "@react-navigation/native";
 import { CustomerList } from "@/components/customer-list";
 import { CustomerForm } from "@/components/customer-form";
+import { RoomPlanCapture } from "@/components/roomplan-capture";
 import { useMigrations } from "drizzle-orm/expo-sqlite/migrator";
 import migrations from "@/db/migrations/migrations";
 import { dbForMigrations } from "@/db";
@@ -69,6 +70,7 @@ export default function App() {
       <AppStack.Navigator>
         <AppStack.Screen name="CustomerList" component={CustomerList} />
         <AppStack.Screen name="CustomerForm" component={CustomerForm} />
+        <AppStack.Screen name="RoomPlanCapture" component={RoomPlanCapture} />
       </AppStack.Navigator>
     );
   }
