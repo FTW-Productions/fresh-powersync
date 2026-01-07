@@ -78,6 +78,8 @@ export const CustomerForm = () => {
       <TextInput placeholder="Name" onChangeText={setName} />
       <TextInput placeholder="Phone" onChangeText={setPhone} />
       <Text>{errorMessage}</Text>
+      <Button onPress={() => navigation.navigate("RoomPlanCapture")}
+        title="Scan The Room" />
       <PhotoSelector passLocalImageToParent={handleImageSelection} />
       <Button onPress={handleAddCustomer} title="Add Customer" />
       <Button onPress={() => navigation.goBack()} title="Go Back" />
