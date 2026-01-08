@@ -50,15 +50,16 @@ export function RoomPlanCapture({ roomId, onScanComplete, onScanError }: RoomPla
   });
 
   // Cleanup: cancel scan if component unmounts while scanning
-  // Capture controls at effect creation to avoid stale reference
+  // Note: controls.cancel is stable (memoized with useCallback in useRoomPlanView)
+  // so empty deps is safe - the cancel function reference never changes
   useEffect(() => {
-    const currentControls = controls;
     return () => {
       if (overlayRef.current) {
-        currentControls.cancel();
+        controls.cancel();
       }
     };
-  }, [controls]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleOpenScanner = () => {
     controls.reset();

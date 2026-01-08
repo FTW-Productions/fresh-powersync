@@ -341,7 +341,7 @@ export function transformRoomPlanData(raw: RawRoomPlanData): SimplifiedRoomData 
     objects,
     dryingMetrics: {
       recommendedAirMovers: { min: airMoversMin, max: airMoversMax },
-      linearFeetForAirMovers: linearWallFeet,
+      linearFeetForAirMovers: linearWallFeet, // Duplicated from summary for API convenience
     },
   };
 }
