@@ -1,0 +1,347 @@
+// Unit conversion constants
+const METERS_TO_FEET = 3.28084;
+const SQM_TO_SQFT = 10.7639;
+const CUM_TO_CUFT = 35.3147;
+
+// IICRC S500 Standard: 1 air mover per 10-16 linear feet for Class 1-2 water damage
+const IICRC_LINEAR_FEET_PER_AIR_MOVER_MIN = 10;
+const IICRC_LINEAR_FEET_PER_AIR_MOVER_MAX = 16;
+
+// Type definitions for raw RoomPlan JSON
+interface RawRoomPlanData {
+  version?: number;
+  walls?: RawWall[];
+  floors?: RawFloor[];
+  doors?: RawDoor[];
+  windows?: RawWindow[];
+  openings?: RawOpening[];
+  objects?: RawObject[];
+  rooms?: unknown[];
+}
+
+interface RawWall {
+  dimensions?: [number, number, number]; // [width, height, depth] in meters
+  confidence?: { high?: {}; medium?: {}; low?: {} };
+  identifier?: string;
+  parentIdentifier?: string | null;
+}
+
+interface RawFloor {
+  dimensions?: [number, number, number];
+  polygonCorners?: [number, number, number][]; // [x, y, z] coordinates
+  confidence?: { high?: {}; medium?: {}; low?: {} };
+  identifier?: string;
+}
+
+interface RawDoor {
+  dimensions?: [number, number, number];
+  parentIdentifier?: string;
+  identifier?: string;
+  category?: { door?: { isOpen?: boolean } };
+  confidence?: { high?: {}; medium?: {}; low?: {} };
+}
+
+interface RawWindow {
+  dimensions?: [number, number, number];
+  parentIdentifier?: string;
+  identifier?: string;
+  confidence?: { high?: {}; medium?: {}; low?: {} };
+}
+
+interface RawOpening {
+  dimensions?: [number, number, number];
+  identifier?: string;
+  confidence?: { high?: {}; medium?: {}; low?: {} };
+}
+
+interface RawObject {
+  dimensions?: [number, number, number];
+  category?: Record<string, unknown>;
+  identifier?: string;
+}
+
+// Type definitions for simplified output
+interface DualUnit {
+  ft: number;
+  m: number;
+}
+
+interface DualAreaUnit {
+  sqFt: number;
+  sqM: number;
+}
+
+interface DualVolumeUnit {
+  cuFt: number;
+  cuM: number;
+}
+
+export interface SimplifiedRoomData {
+  scanId: string;
+  scannedAt: string;
+
+  summary: {
+    floorArea: DualAreaUnit;
+    ceilingHeight: DualUnit;
+    roomVolume: DualVolumeUnit;
+    totalWallArea: DualAreaUnit;
+    linearWallFeet: number;
+  };
+
+  walls: Array<{
+    id: string;
+    width: DualUnit;
+    height: DualUnit;
+    area: DualAreaUnit;
+    confidence: "high" | "medium" | "low";
+    hasDoor: boolean;
+    hasWindow: boolean;
+  }>;
+
+  doors: Array<{
+    id: string;
+    width: DualUnit;
+    height: DualUnit;
+    isOpen: boolean;
+    wallId: string | null;
+  }>;
+
+  windows: Array<{
+    id: string;
+    width: DualUnit;
+    height: DualUnit;
+    wallId: string | null;
+  }>;
+
+  openings: Array<{
+    id: string;
+    width: DualUnit;
+    height: DualUnit;
+  }>;
+
+  objects: Array<{
+    type: string;
+    dimensions: {
+      width: DualUnit;
+      height: DualUnit;
+      depth: DualUnit;
+    };
+  }>;
+
+  dryingMetrics: {
+    recommendedAirMovers: { min: number; max: number };
+    linearFeetForAirMovers: number;
+  };
+}
+
+// Helper functions
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function metersToFeet(m: number): number {
+  return round2(m * METERS_TO_FEET);
+}
+
+function sqMetersToSqFeet(sqM: number): number {
+  return round2(sqM * SQM_TO_SQFT);
+}
+
+function cuMetersToCuFeet(cuM: number): number {
+  return round2(cuM * CUM_TO_CUFT);
+}
+
+function toDualUnit(meters: number): DualUnit {
+  return {
+    ft: metersToFeet(meters),
+    m: round2(meters),
+  };
+}
+
+function toDualAreaUnit(sqMeters: number): DualAreaUnit {
+  return {
+    sqFt: sqMetersToSqFeet(sqMeters),
+    sqM: round2(sqMeters),
+  };
+}
+
+function toDualVolumeUnit(cuMeters: number): DualVolumeUnit {
+  return {
+    cuFt: cuMetersToCuFeet(cuMeters),
+    cuM: round2(cuMeters),
+  };
+}
+
+function getConfidence(conf: {
+  high?: {};
+  medium?: {};
+  low?: {};
+}): "high" | "medium" | "low" {
+  if (conf.high !== undefined) return "high";
+  if (conf.medium !== undefined) return "medium";
+  return "low";
+}
+
+function calculatePolygonArea(corners: [number, number, number][]): number {
+  // Shoelace formula for polygon area
+  // Using x (index 0) and y (index 1) coordinates - floor is on XY plane with z=0
+  // Note: RoomPlan exports floor polygons on XY plane with z=0
+  // If future scans use different orientations, this may need adjustment
+  if (corners.length < 3) return 0;
+
+  let area = 0;
+  const n = corners.length;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    area += corners[i][0] * corners[j][1];
+    area -= corners[j][0] * corners[i][1];
+  }
+  return Math.abs(area) / 2;
+}
+
+function getObjectType(category: Record<string, unknown>): string {
+  const keys = Object.keys(category);
+  if (keys.length > 0) {
+    return keys[0];
+  }
+  return "unknown";
+}
+
+function generateScanId(): string {
+  return `scan_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+}
+
+export function transformRoomPlanData(raw: RawRoomPlanData): SimplifiedRoomData {
+  // Input validation
+  if (!raw || typeof raw !== 'object') {
+    throw new Error('Invalid RoomPlan data: expected object');
+  }
+
+  const scanId = generateScanId();
+  const scannedAt = new Date().toISOString();
+
+  // Build lookup sets for doors and windows by wall ID
+  const doorWallIds = new Set<string>();
+  const windowWallIds = new Set<string>();
+
+  raw.doors?.forEach((door) => {
+    if (door.parentIdentifier) {
+      doorWallIds.add(door.parentIdentifier);
+    }
+  });
+
+  raw.windows?.forEach((window) => {
+    if (window.parentIdentifier) {
+      windowWallIds.add(window.parentIdentifier);
+    }
+  });
+
+  // Process walls (with bounds checking for dimensions)
+  const walls = (raw.walls || []).map((wall) => {
+    const widthM = wall.dimensions?.[0] ?? 0;
+    const heightM = wall.dimensions?.[1] ?? 0;
+    const areaSqM = widthM * heightM;
+
+    return {
+      id: wall.identifier ?? '',
+      width: toDualUnit(widthM),
+      height: toDualUnit(heightM),
+      area: toDualAreaUnit(areaSqM),
+      confidence: getConfidence(wall.confidence ?? {}),
+      hasDoor: wall.identifier ? doorWallIds.has(wall.identifier) : false,
+      hasWindow: wall.identifier ? windowWallIds.has(wall.identifier) : false,
+    };
+  });
+
+  // Calculate floor area from polygonCorners if available, otherwise use dimensions
+  let floorAreaSqM = 0;
+  if (raw.floors && raw.floors.length > 0) {
+    const floor = raw.floors[0];
+    if (floor.polygonCorners && floor.polygonCorners.length >= 3) {
+      floorAreaSqM = calculatePolygonArea(floor.polygonCorners);
+    } else {
+      // Fallback to dimensions (width * height for floor = length * width)
+      const floorWidth = floor.dimensions?.[0] ?? 0;
+      const floorLength = floor.dimensions?.[1] ?? 0;
+      floorAreaSqM = floorWidth * floorLength;
+    }
+  }
+
+  // Use maximum wall height as ceiling height
+  // (median could be skewed by partial walls or half-walls)
+  let ceilingHeightM = 0;
+  if (walls.length > 0) {
+    ceilingHeightM = Math.max(...walls.map((w) => w.height.m));
+  }
+
+  // Calculate total wall area and linear feet
+  const totalWallAreaSqM = walls.reduce((sum, w) => sum + w.area.sqM, 0);
+  const linearWallMeters = walls.reduce((sum, w) => sum + w.width.m, 0);
+  const linearWallFeet = round2(linearWallMeters * METERS_TO_FEET);
+
+  // Calculate room volume
+  const roomVolumeCuM = floorAreaSqM * ceilingHeightM;
+
+  // Process doors (with bounds checking)
+  const doors = (raw.doors || []).map((door) => ({
+    id: door.identifier ?? '',
+    width: toDualUnit(door.dimensions?.[0] ?? 0),
+    height: toDualUnit(door.dimensions?.[1] ?? 0),
+    isOpen: door.category?.door?.isOpen ?? false,
+    wallId: door.parentIdentifier ?? null,
+  }));
+
+  // Process windows (with bounds checking)
+  const windows = (raw.windows || []).map((window) => ({
+    id: window.identifier ?? '',
+    width: toDualUnit(window.dimensions?.[0] ?? 0),
+    height: toDualUnit(window.dimensions?.[1] ?? 0),
+    wallId: window.parentIdentifier ?? null,
+  }));
+
+  // Process openings (with bounds checking)
+  const openings = (raw.openings || []).map((opening) => ({
+    id: opening.identifier ?? '',
+    width: toDualUnit(opening.dimensions?.[0] ?? 0),
+    height: toDualUnit(opening.dimensions?.[1] ?? 0),
+  }));
+
+  // Process objects (with bounds checking)
+  const objects = (raw.objects || []).map((obj) => ({
+    type: getObjectType(obj.category ?? {}),
+    dimensions: {
+      width: toDualUnit(obj.dimensions?.[0] ?? 0),
+      height: toDualUnit(obj.dimensions?.[1] ?? 0),
+      depth: toDualUnit(obj.dimensions?.[2] ?? 0),
+    },
+  }));
+
+  // Calculate IICRC S500 drying metrics (guard against division by zero)
+  const airMoversMin = linearWallFeet > 0
+    ? Math.ceil(linearWallFeet / IICRC_LINEAR_FEET_PER_AIR_MOVER_MAX)
+    : 0;
+  const airMoversMax = linearWallFeet > 0
+    ? Math.ceil(linearWallFeet / IICRC_LINEAR_FEET_PER_AIR_MOVER_MIN)
+    : 0;
+
+  return {
+    scanId,
+    scannedAt,
+    summary: {
+      floorArea: toDualAreaUnit(floorAreaSqM),
+      ceilingHeight: toDualUnit(ceilingHeightM),
+      roomVolume: toDualVolumeUnit(roomVolumeCuM),
+      totalWallArea: toDualAreaUnit(totalWallAreaSqM),
+      linearWallFeet,
+    },
+    walls,
+    doors,
+    windows,
+    openings,
+    objects,
+    dryingMetrics: {
+      recommendedAirMovers: { min: airMoversMin, max: airMoversMax },
+      linearFeetForAirMovers: linearWallFeet, // Duplicated from summary for API convenience
+    },
+  };
+}
